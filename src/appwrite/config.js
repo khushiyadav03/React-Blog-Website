@@ -189,8 +189,11 @@ export class Service{
     async upsertProfile({userID, name, bio, avatar, website, github, linkedin}) {
         if (!this.isConfigured || !userID || !this.optionalCollection(conf.appwriteProfilesCollectionId)) return null;
 
-        const payload = {userID, name, bio, website, github, linkedin};
+        const payload = {userID, name, bio};
         if (avatar) payload.avatar = avatar;
+        if (website) payload.website = website;
+        if (github) payload.github = github;
+        if (linkedin) payload.linkedin = linkedin;
 
         try {
             const existing = await this.getProfile(userID);

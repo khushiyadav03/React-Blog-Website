@@ -58,6 +58,7 @@ function Login() {
                 label="Email: "
                 placeholder="Enter your email"
                 type="email"
+                autoComplete="email"
                 {...register("email", {
                     required: true,
                     validate: {
@@ -71,6 +72,7 @@ function Login() {
                 label="Password: "
                 type="password"
                 placeholder="Enter your password"
+                autoComplete="current-password"
                 {...register("password", {
                     required: true,
                 })}

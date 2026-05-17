@@ -13,10 +13,12 @@ function Signup() {
     const navigate = useNavigate()
     const dispatch = useDispatch()
     const [error, setError] = useState("")
+    const [accountExists, setAccountExists] = useState(false)
     const {register, handleSubmit} = useForm()
 
     const create = async(data) => {
         setError("")
+        setAccountExists(false)
         try {
             const userData = await authService.createAccount(data)
             if(userData){
@@ -35,7 +37,9 @@ function Signup() {
                 navigate("/")
             }
         } catch (error) {
-            setError(error.message)
+            const isDuplicateAccount = error?.code === 409 || error?.type === "user_already_exists";
+            setAccountExists(isDuplicateAccount);
+            setError(isDuplicateAccount ? "An account with this email already exists." : error.message)
         }
     }
 
@@ -54,13 +58,23 @@ function Signup() {
                         Sign In
                     </Link>
                 </p>
-                {error && <p className="mt-8 rounded-md bg-red-50 px-3 py-2 text-center text-sm font-medium text-red-700">{error}</p>}
+                {error && (
+                    <div className="mt-8 rounded-md bg-red-50 px-3 py-2 text-center text-sm font-medium text-red-700">
+                        <p>{error}</p>
+                        {accountExists && (
+                            <Link to="/login" className="mt-1 inline-block font-semibold text-red-800 underline underline-offset-2">
+                                Sign in instead
+                            </Link>
+                        )}
+                    </div>
+                )}
 
                 <form onSubmit={handleSubmit(create)} className="mt-8">
                     <div className='space-y-5'>
                         <Input
                         label = "Full Name: "
                         placeholder = "Enter your full name"
+                        autoComplete="name"
                         {...register("name", {
                             required: true,
                         })}
@@ -70,6 +84,7 @@ function Signup() {
                         label = "Email: "
                         placeholder = "Enter your Email"
                         type="email"
+                        autoComplete="email"
                         {...register("email", {
                             required: true,
                             validate: {
@@ -83,6 +98,7 @@ function Signup() {
                         label="Password"
                         type="password"
                         placeholder="Enter your password"
+                        autoComplete="new-password"
                         {...register("password", {
                             required: true,})}
                         />
