@@ -10,7 +10,7 @@ const FEATURED_IMAGE_ASPECT = 16 / 9;
 export default function PostForm({ post }) {
     // Same form add aur edit dono ke liye use ho raha hai.
     // Agar post mila hai to existing values fill hongi, warna empty form rahega.
-    const { register, handleSubmit, setValue, control, getValues } = useForm({
+    const { register, handleSubmit, setValue, control, getValues, formState: { isSubmitting } } = useForm({
         defaultValues: {
             title: post?.title || "",
             slug: post?.$id || "",
@@ -385,9 +385,23 @@ export default function PostForm({ post }) {
                     className="mb-4"
                     {...register("tags")}
                 />
-                <Button type="submit" bgColor={post ? "bg-emerald-600" : "bg-slate-950"} className="w-full hover:bg-emerald-700">
-                    {post ? "Update" : "Submit"}
+                <Button
+                    type="submit"
+                    bgColor={post ? "bg-emerald-600" : "bg-slate-950"}
+                    className="flex w-full items-center justify-center gap-2 hover:bg-emerald-700 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-70"
+                    disabled={isSubmitting}
+                    aria-busy={isSubmitting}
+                >
+                    {isSubmitting && (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
+                    )}
+                    {isSubmitting ? (post ? "Updating..." : "Publishing...") : (post ? "Update" : "Submit")}
                 </Button>
+                {isSubmitting && (
+                    <p className="mt-3 text-center text-sm font-medium text-slate-500">
+                        {post ? "Saving your changes..." : "Uploading image and publishing your post..."}
+                    </p>
+                )}
             </aside>
         </form>
     );
