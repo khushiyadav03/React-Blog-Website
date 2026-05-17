@@ -11,8 +11,20 @@ export class Service{
     client = new Client();
     databases;
     bucket;
+    isConfigured = Boolean(
+        conf.appwriteUrl &&
+        conf.appwriteProjectId &&
+        conf.appwriteDatabaseId &&
+        conf.appwriteCollectionId &&
+        conf.appwriteBucketId
+    );
 
     constructor() {
+        if (!this.isConfigured) {
+            console.warn("Appwrite data service is not configured. Add VITE_APPWRITE_* variables in Vercel.");
+            return;
+        }
+
         // Appwrite client ko project URL aur project ID se connect kar rahe hain.
         this.client
             .setEndpoint(conf.appwriteUrl)
@@ -25,6 +37,10 @@ export class Service{
 
     optionalCollection(collectionId) {
         return collectionId && collectionId !== "undefined";
+    }
+
+    emptyList() {
+        return { documents: [] };
     }
 
     buildPostPayload({title, content, featuredImage, status, userID, excerpt, categoryID, tags}) {
@@ -44,6 +60,8 @@ export class Service{
     }
 
     async createPost({title, slug, content, featuredImage, status, userID, excerpt, categoryID, tags}) {
+        if (!this.isConfigured) return null;
+
         try {
             // Slug ko document ID bana kar new blog post create kar rahe hain.
             return await this.databases.createDocument(conf.appwriteDatabaseId, conf.appwriteCollectionId, slug, this.buildPostPayload({
@@ -67,6 +85,8 @@ export class Service{
     }
 
     async updatePost(slug, {title, content, featuredImage, status, excerpt, categoryID, tags}){
+        if (!this.isConfigured) return null;
+
         try {
             const payload = this.buildPostPayload({
                 title,
@@ -94,16 +114,20 @@ export class Service{
     }
 
     async getUserPosts(userID) {
-        if (!userID) return { documents: [] };
+        if (!this.isConfigured || !userID) return this.emptyList();
 
         return this.getPosts([Query.equal("userID", userID), Query.orderDesc("$createdAt")]);
     }
 
     async getPublishedPosts(extraQueries = []) {
+        if (!this.isConfigured) return this.emptyList();
+
         return this.getPosts([Query.equal("status", "active"), Query.orderDesc("$createdAt"), ...extraQueries]);
     }
 
     async searchPosts(searchTerm) {
+        if (!this.isConfigured) return this.emptyList();
+
         const queries = [Query.equal("status", "active"), Query.orderDesc("$createdAt")];
 
         if (searchTerm) {
@@ -114,7 +138,7 @@ export class Service{
     }
 
     async getCategories() {
-        if (!this.optionalCollection(conf.appwriteCategoriesCollectionId)) return { documents: [] };
+        if (!this.isConfigured || !this.optionalCollection(conf.appwriteCategoriesCollectionId)) return this.emptyList();
 
         try {
             return await this.databases.listDocuments(
@@ -129,7 +153,7 @@ export class Service{
     }
 
     async getCategory(slug) {
-        if (!this.optionalCollection(conf.appwriteCategoriesCollectionId)) return null;
+        if (!this.isConfigured || !this.optionalCollection(conf.appwriteCategoriesCollectionId)) return null;
 
         try {
             const categories = await this.databases.listDocuments(
@@ -146,7 +170,7 @@ export class Service{
     }
 
     async getProfile(userID) {
-        if (!userID || !this.optionalCollection(conf.appwriteProfilesCollectionId)) return null;
+        if (!this.isConfigured || !userID || !this.optionalCollection(conf.appwriteProfilesCollectionId)) return null;
 
         try {
             const profiles = await this.databases.listDocuments(
@@ -163,7 +187,7 @@ export class Service{
     }
 
     async upsertProfile({userID, name, bio, avatar, website, github, linkedin}) {
-        if (!userID || !this.optionalCollection(conf.appwriteProfilesCollectionId)) return null;
+        if (!this.isConfigured || !userID || !this.optionalCollection(conf.appwriteProfilesCollectionId)) return null;
 
         const payload = {userID, name, bio, website, github, linkedin};
         if (avatar) payload.avatar = avatar;
@@ -198,7 +222,7 @@ export class Service{
     }
 
     async getBookmarks(userID) {
-        if (!userID || !this.optionalCollection(conf.appwriteBookmarksCollectionId)) return { documents: [] };
+        if (!this.isConfigured || !userID || !this.optionalCollection(conf.appwriteBookmarksCollectionId)) return this.emptyList();
 
         try {
             return await this.databases.listDocuments(
@@ -213,7 +237,7 @@ export class Service{
     }
 
     async getBookmark(userID, postID) {
-        if (!userID || !postID || !this.optionalCollection(conf.appwriteBookmarksCollectionId)) return null;
+        if (!this.isConfigured || !userID || !postID || !this.optionalCollection(conf.appwriteBookmarksCollectionId)) return null;
 
         try {
             const bookmarks = await this.databases.listDocuments(
@@ -230,7 +254,7 @@ export class Service{
     }
 
     async toggleBookmark(userID, postID) {
-        if (!userID || !postID || !this.optionalCollection(conf.appwriteBookmarksCollectionId)) return null;
+        if (!this.isConfigured || !userID || !postID || !this.optionalCollection(conf.appwriteBookmarksCollectionId)) return null;
 
         try {
             const existing = await this.getBookmark(userID, postID);
@@ -263,6 +287,8 @@ export class Service{
     }
 
     async deletePost(slug){
+        if (!this.isConfigured) return false;
+
         try {
             // Slug/document ID se post delete karte hain.
             await this.databases.deleteDocument(
@@ -278,6 +304,8 @@ export class Service{
     }
 
     async getPost(slug) {
+        if (!this.isConfigured) return false;
+
         try {
             // Single post fetch karte hain using slug/document ID.
             return await this.databases.getDocument(
@@ -292,6 +320,8 @@ export class Service{
     }
 
     async getPosts(queries = [Query.equal("status", "active")]){
+        if (!this.isConfigured) return this.emptyList();
+
         try {
             // By default sirf active posts list hote hain; custom queries bhi pass kar sakte hain.
             return await this.databases.listDocuments(
@@ -305,6 +335,8 @@ export class Service{
     }
 
     async uploadFile(file){
+        if (!this.isConfigured) return false;
+
         try {
             // Image/file ko Appwrite bucket me unique ID ke saath upload karte hain.
             return await this.bucket.createFile(
@@ -324,6 +356,8 @@ export class Service{
     }
 
     async deleteFile(fileID){
+        if (!this.isConfigured) return false;
+
         try {
             // Bucket se uploaded file delete karte hain.
             await this.bucket.deleteFile(
@@ -338,7 +372,7 @@ export class Service{
     }
 
     getFileView(fileId){
-        if (!fileId) return "";
+        if (!this.isConfigured || !fileId) return "";
 
         // Direct file URL is more reliable than transformed previews for public blog images.
         const fileView = this.bucket.getFileView(

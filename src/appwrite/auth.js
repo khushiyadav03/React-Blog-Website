@@ -15,8 +15,14 @@ const authSessionKey = "appwriteSession";
 export class AuthService {
     client = new Client();
     account;
+    isConfigured = Boolean(conf.appwriteUrl && conf.appwriteProjectId);
 
     constructor() {
+        if (!this.isConfigured) {
+            console.warn("Appwrite auth is not configured. Add VITE_APPWRITE_URL and VITE_APPWRITE_PROJECT_ID.");
+            return;
+        }
+
         // Appwrite client ko project URL aur project ID se configure kar rahe hain.
         this.client
             .setEndpoint(conf.appwriteUrl)
@@ -27,6 +33,8 @@ export class AuthService {
     }
 
     async createAccount({email, password, name}) {
+        if (!this.isConfigured) throw new Error("Appwrite auth is not configured.");
+
         // New user account create karte hain unique ID ke saath.
         const userAccount = await this.account.create(ID.unique(), email, password, name);
 
@@ -39,6 +47,8 @@ export class AuthService {
     }
 
     async login({email, password}) {
+        if (!this.isConfigured) throw new Error("Appwrite auth is not configured.");
+
         // Email/password se Appwrite session create hota hai.
         const session = await this.account.createEmailPasswordSession(email, password);
 
@@ -48,6 +58,8 @@ export class AuthService {
     }
 
     async getCurrentUser() {
+        if (!this.isConfigured) return null;
+
         // Agar local session flag hi nahi hai, to user logged in nahi maana jayega.
         if (!localStorage.getItem(authSessionKey)) {
             return null;
@@ -64,6 +76,8 @@ export class AuthService {
     }
 
     async logout() {
+        if (!this.isConfigured) return false;
+
         try {
             // Appwrite ke sabhi active sessions delete karke user ko logout karte hain.
             await this.account.deleteSessions();
