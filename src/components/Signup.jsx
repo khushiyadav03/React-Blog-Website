@@ -1,7 +1,8 @@
-import React, {useState} from 'react';
+import {useState} from 'react';
 import authService from '@/appwrite/auth';
+import appwriteService from '@/appwrite/config';
 import { Link, useNavigate } from 'react-router-dom';
-import {signup} from '../store/authSlice'
+import { login as authLogin } from '../store/authSlice'
 import {Button, Input, Logo} from './index'
 import { useDispatch } from 'react-redux';
 import { useForm } from 'react-hook-form';
@@ -20,7 +21,18 @@ function Signup() {
             const userData = await authService.createAccount(data)
             if(userData){
                 const userData = await authService.getCurrentUser()
-                if(userData) dispatch(login(userData));
+                if(userData) {
+                    await appwriteService.upsertProfile({
+                        userID: userData.$id,
+                        name: userData.name,
+                        bio: "",
+                        website: "",
+                        github: "",
+                        linkedin: "",
+                    });
+                    dispatch(authLogin(userData));
+                }
+                navigate("/")
             }
         } catch (error) {
             setError(error.message)
@@ -28,23 +40,23 @@ function Signup() {
     }
 
     return (
-        <div className='flex items-center justify-center'>
-            <div className={`mx-auto w-full max-w-lg bg-gray-100 rounded-xl p-10 border border-black/10`}>
+        <div className='flex items-center justify-center px-4'>
+            <div className={`mx-auto w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-sm`}>
                 <div className="mb-2 flex justify-center">
                     <span className="inline-block w-full max-w-[100px]">
                         <Logo width ="100%" />
                     </span>
                 </div>
-                <h2 className="text-center text-2xl font-bold leading-tight">Sign up to create account</h2>
-                <p>
+                <h2 className="text-center text-2xl font-bold leading-tight text-slate-950">Sign up to create account</h2>
+                <p className="mt-2 text-center text-base text-slate-600">
                     Already have an Account?&nbsp;
-                    <Link to="/login" className='font-medium text-primary transition-all duration-200 hover:underline'>
+                    <Link to="/login" className='font-semibold text-emerald-700 transition-all duration-200 hover:underline'>
                         Sign In
                     </Link>
                 </p>
-                {error && <p className="text-red-600 mt-8 text-center">{error}</p>}
+                {error && <p className="mt-8 rounded-md bg-red-50 px-3 py-2 text-center text-sm font-medium text-red-700">{error}</p>}
 
-                <form onSubmit={handleSubmit(create)}>
+                <form onSubmit={handleSubmit(create)} className="mt-8">
                     <div className='space-y-5'>
                         <Input
                         label = "Full Name: "
@@ -75,7 +87,7 @@ function Signup() {
                             required: true,})}
                         />
 
-                        <Button type="submit" className='w-full'>
+                        <Button type="submit" className='w-full hover:bg-emerald-700'>
                             Create Account
                         </Button>
                     </div>

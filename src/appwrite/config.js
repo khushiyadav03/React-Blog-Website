@@ -1,53 +1,270 @@
-import conf from "../conf/conf";
-import { Client, ID, Databases, Storage, Query, Account } from "appwrite";
+/*
+Appwrite database se posts create/update/delete/fetch ho rahe hain, 
+aur storage bucket se images upload/delete/preview handle ho raha hai
+*/
 
+import conf from "../conf/conf";
+import { Client, ID, Databases, Storage, Query, Permission, Role } from "appwrite";
+
+// Blog posts aur files ke Appwrite operations yahin se handle hote hain.
 export class Service{
     client = new Client();
     databases;
     bucket;
 
     constructor() {
+        // Appwrite client ko project URL aur project ID se connect kar rahe hain.
         this.client
             .setEndpoint(conf.appwriteUrl)
             .setProject(conf.appwriteProjectId)
+
+        // Databases posts ke liye, Storage images/files ke liye use hoga.
         this.databases = new Databases(this.client)
         this.bucket = new Storage(this.client)
     }
 
-    async createPost({title, slug, content, featuredImage, status, userId}) {
+    optionalCollection(collectionId) {
+        return collectionId && collectionId !== "undefined";
+    }
+
+    buildPostPayload({title, content, featuredImage, status, userID, excerpt, categoryID, tags}) {
+        const payload = {
+            title,
+            content,
+            featuredImage,
+            status,
+            userID,
+        };
+
+        if (excerpt) payload.excerpt = excerpt;
+        if (categoryID) payload.categoryID = categoryID;
+        if (tags?.length) payload.tags = Array.isArray(tags) ? tags : String(tags).split(",").map((tag) => tag.trim()).filter(Boolean);
+
+        return payload;
+    }
+
+    async createPost({title, slug, content, featuredImage, status, userID, excerpt, categoryID, tags}) {
         try {
-            return await this.databases.createDocument(conf.appwriteDatabaseId, conf.appwriteCollectionId, slug, {
+            // Slug ko document ID bana kar new blog post create kar rahe hain.
+            return await this.databases.createDocument(conf.appwriteDatabaseId, conf.appwriteCollectionId, slug, this.buildPostPayload({
                 title,
                 content,
                 featuredImage,
                 status,
-                userId
-            })
+                userID,
+                excerpt,
+                categoryID,
+                tags,
+            }),
+            [
+                Permission.read(Role.any()),
+                Permission.update(Role.user(userID)),
+                Permission.delete(Role.user(userID)),
+            ])
         } catch(error){
             console.log("Appwrite service :: createPost :: error", error);
         }
     }
 
-    async updatePost(slug, {title, content, featuredImage, status}){
+    async updatePost(slug, {title, content, featuredImage, status, excerpt, categoryID, tags}){
         try {
+            const payload = this.buildPostPayload({
+                title,
+                content,
+                featuredImage,
+                status,
+                excerpt,
+                categoryID,
+                tags,
+            });
+
+            if (!featuredImage) delete payload.featuredImage;
+            delete payload.userID;
+
+            // Existing post ko slug/document ID ke basis par update kar rahe hain.
             return await this.databases.updateDocument(
                 conf.appwriteDatabaseId,
                 conf.appwriteCollectionId,
                 slug,
-                {
-                    title,
-                    content,
-                    featuredImage,
-                    status
-                }
+                payload
             )
         } catch (error) {
-            console.log("Appwrite service :: createPost :: error", error);
+            console.log("Appwrite service :: updatePost :: error", error);
+        }
+    }
+
+    async getUserPosts(userID) {
+        if (!userID) return { documents: [] };
+
+        return this.getPosts([Query.equal("userID", userID), Query.orderDesc("$createdAt")]);
+    }
+
+    async getPublishedPosts(extraQueries = []) {
+        return this.getPosts([Query.equal("status", "active"), Query.orderDesc("$createdAt"), ...extraQueries]);
+    }
+
+    async searchPosts(searchTerm) {
+        const queries = [Query.equal("status", "active"), Query.orderDesc("$createdAt")];
+
+        if (searchTerm) {
+            queries.unshift(Query.search("title", searchTerm));
+        }
+
+        return this.getPosts(queries);
+    }
+
+    async getCategories() {
+        if (!this.optionalCollection(conf.appwriteCategoriesCollectionId)) return { documents: [] };
+
+        try {
+            return await this.databases.listDocuments(
+                conf.appwriteDatabaseId,
+                conf.appwriteCategoriesCollectionId,
+                [Query.orderAsc("name")]
+            )
+        } catch (error) {
+            console.log("Appwrite service :: getCategories :: error", error);
+            return { documents: [] };
+        }
+    }
+
+    async getCategory(slug) {
+        if (!this.optionalCollection(conf.appwriteCategoriesCollectionId)) return null;
+
+        try {
+            const categories = await this.databases.listDocuments(
+                conf.appwriteDatabaseId,
+                conf.appwriteCategoriesCollectionId,
+                [Query.equal("slug", slug)]
+            )
+
+            return categories.documents[0] || null;
+        } catch (error) {
+            console.log("Appwrite service :: getCategory :: error", error);
+            return null;
+        }
+    }
+
+    async getProfile(userID) {
+        if (!userID || !this.optionalCollection(conf.appwriteProfilesCollectionId)) return null;
+
+        try {
+            const profiles = await this.databases.listDocuments(
+                conf.appwriteDatabaseId,
+                conf.appwriteProfilesCollectionId,
+                [Query.equal("userID", userID)]
+            )
+
+            return profiles.documents[0] || null;
+        } catch (error) {
+            console.log("Appwrite service :: getProfile :: error", error);
+            return null;
+        }
+    }
+
+    async upsertProfile({userID, name, bio, avatar, website, github, linkedin}) {
+        if (!userID || !this.optionalCollection(conf.appwriteProfilesCollectionId)) return null;
+
+        const payload = {userID, name, bio, website, github, linkedin};
+        if (avatar) payload.avatar = avatar;
+
+        try {
+            const existing = await this.getProfile(userID);
+
+            if (existing) {
+                return await this.databases.updateDocument(
+                    conf.appwriteDatabaseId,
+                    conf.appwriteProfilesCollectionId,
+                    existing.$id,
+                    payload
+                )
+            }
+
+            return await this.databases.createDocument(
+                conf.appwriteDatabaseId,
+                conf.appwriteProfilesCollectionId,
+                ID.unique(),
+                payload,
+                [
+                    Permission.read(Role.any()),
+                    Permission.update(Role.user(userID)),
+                    Permission.delete(Role.user(userID)),
+                ]
+            )
+        } catch (error) {
+            console.log("Appwrite service :: upsertProfile :: error", error);
+            return null;
+        }
+    }
+
+    async getBookmarks(userID) {
+        if (!userID || !this.optionalCollection(conf.appwriteBookmarksCollectionId)) return { documents: [] };
+
+        try {
+            return await this.databases.listDocuments(
+                conf.appwriteDatabaseId,
+                conf.appwriteBookmarksCollectionId,
+                [Query.equal("userID", userID), Query.orderDesc("$createdAt")]
+            )
+        } catch (error) {
+            console.log("Appwrite service :: getBookmarks :: error", error);
+            return { documents: [] };
+        }
+    }
+
+    async getBookmark(userID, postID) {
+        if (!userID || !postID || !this.optionalCollection(conf.appwriteBookmarksCollectionId)) return null;
+
+        try {
+            const bookmarks = await this.databases.listDocuments(
+                conf.appwriteDatabaseId,
+                conf.appwriteBookmarksCollectionId,
+                [Query.equal("userID", userID), Query.equal("postID", postID)]
+            )
+
+            return bookmarks.documents[0] || null;
+        } catch (error) {
+            console.log("Appwrite service :: getBookmark :: error", error);
+            return null;
+        }
+    }
+
+    async toggleBookmark(userID, postID) {
+        if (!userID || !postID || !this.optionalCollection(conf.appwriteBookmarksCollectionId)) return null;
+
+        try {
+            const existing = await this.getBookmark(userID, postID);
+
+            if (existing) {
+                await this.databases.deleteDocument(
+                    conf.appwriteDatabaseId,
+                    conf.appwriteBookmarksCollectionId,
+                    existing.$id
+                )
+
+                return null;
+            }
+
+            return await this.databases.createDocument(
+                conf.appwriteDatabaseId,
+                conf.appwriteBookmarksCollectionId,
+                ID.unique(),
+                {userID, postID},
+                [
+                    Permission.read(Role.user(userID)),
+                    Permission.update(Role.user(userID)),
+                    Permission.delete(Role.user(userID)),
+                ]
+            )
+        } catch (error) {
+            console.log("Appwrite service :: toggleBookmark :: error", error);
+            return null;
         }
     }
 
     async deletePost(slug){
         try {
+            // Slug/document ID se post delete karte hain.
             await this.databases.deleteDocument(
                 conf.appwriteDatabaseId,
                 conf.appwriteCollectionId,
@@ -55,70 +272,85 @@ export class Service{
             )
             return true;
         } catch (error) {
-            console.log("Appwrite service :: createPost :: error", error);
+            console.log("Appwrite service :: deletePost :: error", error);
             return false;
         }
     }
 
     async getPost(slug) {
         try {
+            // Single post fetch karte hain using slug/document ID.
             return await this.databases.getDocument(
                 conf.appwriteDatabaseId,
                 conf.appwriteCollectionId,
                 slug
             )
         } catch(error) {
-            console.log("Appwrite service :: createPost :: error", error);
+            console.log("Appwrite service :: getPost :: error", error);
             return false;
         }
     }
 
     async getPosts(queries = [Query.equal("status", "active")]){
         try {
+            // By default sirf active posts list hote hain; custom queries bhi pass kar sakte hain.
             return await this.databases.listDocuments(
                 conf.appwriteDatabaseId,
                 conf.appwriteCollectionId,
                 queries,
             )
         } catch (error) {
-            console.log("Appwrite service :: createPost :: error", error);
+            console.log("Appwrite service :: getPosts :: error", error);
         }
     }
 
-    // file upload service
     async uploadFile(file){
         try {
+            // Image/file ko Appwrite bucket me unique ID ke saath upload karte hain.
             return await this.bucket.createFile(
                 conf.appwriteBucketId,
                 ID.unique(),
-                file
+                file,
+                [
+                    Permission.read(Role.any()),
+                    Permission.update(Role.users()),
+                    Permission.delete(Role.users()),
+                ]
             )
         } catch (error){
-            console.log("Appwrite service :: createPost :: error", error);
+            console.log("Appwrite service :: uploadFile :: error", error);
             return false;
         }
     }
 
-    // delete file
     async deleteFile(fileID){
         try {
+            // Bucket se uploaded file delete karte hain.
             await this.bucket.deleteFile(
                 conf.appwriteBucketId,
                 fileID
             )
             return true
         } catch (error) {
-            console.log("Appwrite service :: createPost :: error", error);
+            console.log("Appwrite service :: deleteFile :: error", error);
             return false;
         }
     }
 
-    // get file preview
-    getFilePreview(fileId){
-        return this.bucket.getFilePreview(
+    getFileView(fileId){
+        if (!fileId) return "";
+
+        // Direct file URL is more reliable than transformed previews for public blog images.
+        const fileView = this.bucket.getFileView(
             conf.appwriteBucketId,
             fileId
         )
+
+        return fileView.href || fileView.toString()
+    }
+
+    getFilePreview(fileId){
+        return this.getFileView(fileId)
     }
 }
 

@@ -1,12 +1,11 @@
-import React from 'react'
 import {Container, Logo, LogoutBtn} from '../index'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {useSelector} from 'react-redux'
-import { useNavigate } from 'react-router-dom'
 
 function Header() {
   const authStatus = useSelector((state) => state.auth.status)
   const navigate = useNavigate()
+  const location = useLocation()
 
   const navItems = [
     {
@@ -14,6 +13,16 @@ function Header() {
       slug: "/",
       active: true
     }, 
+    {
+      name: "Explore",
+      slug: "/posts",
+      active: true,
+    },
+    {
+      name: "Search",
+      slug: "/search",
+      active: true,
+    },
     {
       name: "Login",
       slug: "/login",
@@ -25,35 +34,38 @@ function Header() {
       active: !authStatus,
   },
   {
-      name: "All Posts",
-      slug: "/all-posts",
+      name: "Dashboard",
+      slug: "/dashboard",
       active: authStatus,
   },
   {
-      name: "Add Post",
-      slug: "/add-post",
+      name: "Write",
+      slug: "/dashboard/posts/new",
       active: authStatus,
   },
   ]
 
 
   return (
-    <header className='py-3 shadow bg-gray-500'>
+    <header className='sticky top-0 z-50 border-b border-slate-200/80 bg-stone-50/90 py-3 backdrop-blur-xl'>
       <Container>
-        <nav className='flex'>
-          <div className='mr-4'>
-            <Link to='/'>
-              <Logo width='70px'   />
-
-              </Link>
+        <nav className='flex flex-col gap-3 md:flex-row md:items-center'>
+          <div className='mr-4 flex items-center justify-between'>
+            <Link to='/' className="text-xl font-black tracking-tight text-slate-950">
+              <Logo width='132px'   />
+            </Link>
           </div>
-          <ul className='flex ml-auto'>
+          <ul className='ml-auto flex flex-wrap items-center gap-1.5'>
             {navItems.map((item) => 
             item.active ? (
               <li key={item.name}>
                 <button
                 onClick={() => navigate(item.slug)}
-                className='inline-block px-6 py-2 duration-200 hover:bg-blue-100 rounded-full'
+                className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold duration-200 ${
+                  location.pathname === item.slug
+                    ? "bg-slate-950 text-white shadow-sm"
+                    : "text-slate-600 hover:bg-white hover:text-slate-950 hover:shadow-sm"
+                }`}
                 >{item.name}</button>
               </li>
             ) : null
