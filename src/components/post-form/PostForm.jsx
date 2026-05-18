@@ -10,21 +10,20 @@ const FEATURED_IMAGE_ASPECT = 16 / 9;
 export default function PostForm({ post }) {
     // Same form add aur edit dono ke liye use ho raha hai.
     // Agar post mila hai to existing values fill hongi, warna empty form rahega.
-    const { register, handleSubmit, setValue, control, getValues, formState: { isSubmitting } } = useForm({
+    const { register, handleSubmit, setValue, control, getValues, formState: { isSubmitting, errors } } = useForm({
         defaultValues: {
             title: post?.title || "",
             slug: post?.$id || "",
             content: post?.content || "",
             status: post?.status || "active",
             excerpt: post?.excerpt || "",
-            categoryID: post?.categoryID || "",
             tags: Array.isArray(post?.tags) ? post.tags.join(", ") : post?.tags || "",
         },
     });
 
     const navigate = useNavigate();
     const userData = useSelector((state) => state.auth.userData);
-    const [categories, setCategories] = useState([]);
+    const [formError, setFormError] = useState("");
     const [isDraggingImage, setIsDraggingImage] = useState(false);
     const [imageSize, setImageSize] = useState(null);
     const [cropSelection, setCropSelection] = useState({ x: 10, y: 10, width: 80 });
@@ -32,7 +31,9 @@ export default function PostForm({ post }) {
     const currentImageUrl = appwriteService.getFileView(currentImageId);
     const titleValue = useWatch({ control, name: "title" });
     const selectedImage = useWatch({ control, name: "image" });
-    const imageInput = register("image", { required: !post });
+    const imageInput = register("image", {
+        required: post ? false : "Please add a featured image before publishing.",
+    });
     const imagePreview = useMemo(() => {
         const file = selectedImage?.[0];
         return file ? URL.createObjectURL(file) : "";
@@ -41,12 +42,6 @@ export default function PostForm({ post }) {
         if (!imageSize) return 45;
         return (cropSelection.width * (imageSize.width / imageSize.height)) / FEATURED_IMAGE_ASPECT;
     }, [cropSelection.width, imageSize]);
-
-    useEffect(() => {
-        appwriteService.getCategories().then((response) => {
-            setCategories(response?.documents || []);
-        });
-    }, []);
 
     useEffect(() => () => {
         if (imagePreview) URL.revokeObjectURL(imagePreview);
@@ -138,40 +133,54 @@ export default function PostForm({ post }) {
     };
 
     const submit = async (data) => {
+        setFormError("");
+
         const normalizedData = {
             ...data,
             slug: slugTransform(data.slug || data.title),
         };
 
-        if (post) {
-            // Edit mode: agar new image select ki hai to pehle upload karte hain.
-            const preparedImage = normalizedData.image?.[0] ? await resizeFeaturedImage(normalizedData.image[0]) : null;
-            const file = preparedImage ? await appwriteService.uploadFile(preparedImage) : null;
+        try {
+            if (post) {
+                // Edit mode: agar new image select ki hai to pehle upload karte hain.
+                const preparedImage = normalizedData.image?.[0] ? await resizeFeaturedImage(normalizedData.image[0]) : null;
+                const file = preparedImage ? await appwriteService.uploadFile(preparedImage) : null;
 
-            if (file) {
-                // New image upload ho gayi to old featured image delete kar dete hain.
-                appwriteService.deleteFile(post.featuredImage);
-            }
+                if (preparedImage && !file) {
+                    setFormError("Image upload failed. Please try again with a smaller image.");
+                    return;
+                }
 
-            // Post update karte hain; image change nahi hui to featuredImage undefined rahega.
-            const dbPost = await appwriteService.updatePost(post.$id, {
-                ...normalizedData,
-                tags: normalizedData.tags ? normalizedData.tags.split(",").map((tag) => tag.trim()).filter(Boolean) : [],
-                featuredImage: file ? file.$id : undefined,
-            });
+                if (file) {
+                    // New image upload ho gayi to old featured image delete kar dete hain.
+                    appwriteService.deleteFile(post.featuredImage);
+                }
 
-            if (dbPost) {
-                // Update ke baad post detail page par redirect karte hain.
-                navigate(`/post/${dbPost.$id}`);
-            }
-        } else {
-            // Add mode: new post create karne se pehle image upload karna zaroori hai.
-            const preparedImage = await resizeFeaturedImage(normalizedData.image?.[0]);
-            const file = preparedImage ? await appwriteService.uploadFile(preparedImage) : null;
+                // Post update karte hain; image change nahi hui to featuredImage undefined rahega.
+                const dbPost = await appwriteService.updatePost(post.$id, {
+                    ...normalizedData,
+                    tags: normalizedData.tags ? normalizedData.tags.split(",").map((tag) => tag.trim()).filter(Boolean) : [],
+                    featuredImage: file ? file.$id : undefined,
+                });
 
-            if (file) {
-                const fileId = file.$id;
-                normalizedData.featuredImage = fileId;
+                if (dbPost) {
+                    // Update ke baad post detail page par redirect karte hain.
+                    navigate(`/post/${dbPost.$id}`);
+                    return;
+                }
+
+                setFormError("Post could not be saved. Please check your Appwrite permissions and try again.");
+            } else {
+                // Add mode: new post create karne se pehle image upload karna zaroori hai.
+                const preparedImage = await resizeFeaturedImage(normalizedData.image?.[0]);
+                const file = preparedImage ? await appwriteService.uploadFile(preparedImage) : null;
+
+                if (!file) {
+                    setFormError("Image upload failed. Please choose a featured image and try again.");
+                    return;
+                }
+
+                normalizedData.featuredImage = file.$id;
 
                 // Current logged-in user ki ID ke saath post create hota hai.
                 const dbPost = await appwriteService.createPost({
@@ -182,9 +191,19 @@ export default function PostForm({ post }) {
 
                 if (dbPost) {
                     navigate(`/post/${dbPost.$id}`);
+                    return;
                 }
+
+                setFormError("Post could not be published. Please check your Appwrite permissions and try again.");
             }
+        } catch {
+            setFormError("Something went wrong while publishing. Please try again.");
         }
+    };
+
+    const handleInvalidSubmit = (invalidFields) => {
+        const firstError = invalidFields.image?.message || invalidFields.title?.message || invalidFields.slug?.message || "Please complete the required fields.";
+        setFormError(firstError);
     };
 
     const slugTransform = useCallback((value) => {
@@ -211,19 +230,19 @@ export default function PostForm({ post }) {
     }, [titleValue, slugTransform, setValue]);
 
     return (
-        <form onSubmit={handleSubmit(submit)} className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:grid-cols-[minmax(0,1fr)_340px]">
+        <form onSubmit={handleSubmit(submit, handleInvalidSubmit)} className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:grid-cols-[minmax(0,1fr)_340px]">
             <div>
                 <Input
                     label="Title :"
                     placeholder="Title"
                     className="mb-4"
-                    {...register("title", { required: true })}
+                    {...register("title", { required: "Please add a title." })}
                 />
                 <Input
                     label="Slug :"
                     placeholder="Slug"
                     className="mb-4"
-                    {...register("slug", { required: true })}
+                    {...register("slug", { required: "Please add a slug." })}
                     onInput={(e) => {
                         // Manual slug edit par bhi same slug format maintain karte hain.
                         setValue("slug", slugTransform(e.currentTarget.value), { shouldValidate: true });
@@ -278,6 +297,7 @@ export default function PostForm({ post }) {
                             </span>
                         </label>
                     </div>
+                    {errors.image?.message && <p className="mt-2 text-sm font-medium text-red-600">{errors.image.message}</p>}
                 </div>
                 {(imagePreview || currentImageUrl) && (
                     <div className="mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -369,22 +389,17 @@ export default function PostForm({ post }) {
                     className="mb-4"
                     {...register("status", { required: true })}
                 />
-                <Select
-                    options={["", ...categories.map((category) => category.$id)]}
-                    labels={{
-                        "": "No category",
-                        ...Object.fromEntries(categories.map((category) => [category.$id, category.name])),
-                    }}
-                    label="Category"
-                    className="mb-4"
-                    {...register("categoryID")}
-                />
                 <Input
                     label="Tags"
                     placeholder="react, appwrite, cms"
                     className="mb-4"
                     {...register("tags")}
                 />
+                {formError && (
+                    <p className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                        {formError}
+                    </p>
+                )}
                 <Button
                     type="submit"
                     bgColor={post ? "bg-emerald-600" : "bg-slate-950"}

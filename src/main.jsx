@@ -22,7 +22,6 @@ import SavedPosts from './pages/SavedPosts.jsx'
 import ProfileSettings from './pages/ProfileSettings.jsx'
 import AccountSettings from './pages/AccountSettings.jsx'
 import Search from './pages/Search.jsx'
-import CategoryPosts from './pages/CategoryPosts.jsx'
 import AuthorProfile from './pages/AuthorProfile.jsx'
 
 const router = createBrowserRouter([
@@ -45,10 +44,6 @@ const router = createBrowserRouter([
         {
             path: "/search",
             element: <Search />,
-        },
-        {
-            path: "/categories/:slug",
-            element: <CategoryPosts />,
         },
         {
             path: "/authors/:id",

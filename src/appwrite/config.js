@@ -43,7 +43,7 @@ export class Service{
         return { documents: [] };
     }
 
-    buildPostPayload({title, content, featuredImage, status, userID, excerpt, categoryID, tags}) {
+    buildPostPayload({title, content, featuredImage, status, userID, excerpt, tags}) {
         const payload = {
             title,
             content,
@@ -53,13 +53,12 @@ export class Service{
         };
 
         if (excerpt) payload.excerpt = excerpt;
-        if (categoryID) payload.categoryID = categoryID;
         if (tags?.length) payload.tags = Array.isArray(tags) ? tags : String(tags).split(",").map((tag) => tag.trim()).filter(Boolean);
 
         return payload;
     }
 
-    async createPost({title, slug, content, featuredImage, status, userID, excerpt, categoryID, tags}) {
+    async createPost({title, slug, content, featuredImage, status, userID, excerpt, tags}) {
         if (!this.isConfigured) return null;
 
         try {
@@ -71,7 +70,6 @@ export class Service{
                 status,
                 userID,
                 excerpt,
-                categoryID,
                 tags,
             }),
             [
@@ -84,7 +82,7 @@ export class Service{
         }
     }
 
-    async updatePost(slug, {title, content, featuredImage, status, excerpt, categoryID, tags}){
+    async updatePost(slug, {title, content, featuredImage, status, excerpt, tags}){
         if (!this.isConfigured) return null;
 
         try {
@@ -94,7 +92,6 @@ export class Service{
                 featuredImage,
                 status,
                 excerpt,
-                categoryID,
                 tags,
             });
 
@@ -135,38 +132,6 @@ export class Service{
         }
 
         return this.getPosts(queries);
-    }
-
-    async getCategories() {
-        if (!this.isConfigured || !this.optionalCollection(conf.appwriteCategoriesCollectionId)) return this.emptyList();
-
-        try {
-            return await this.databases.listDocuments(
-                conf.appwriteDatabaseId,
-                conf.appwriteCategoriesCollectionId,
-                [Query.orderAsc("name")]
-            )
-        } catch (error) {
-            console.log("Appwrite service :: getCategories :: error", error);
-            return { documents: [] };
-        }
-    }
-
-    async getCategory(slug) {
-        if (!this.isConfigured || !this.optionalCollection(conf.appwriteCategoriesCollectionId)) return null;
-
-        try {
-            const categories = await this.databases.listDocuments(
-                conf.appwriteDatabaseId,
-                conf.appwriteCategoriesCollectionId,
-                [Query.equal("slug", slug)]
-            )
-
-            return categories.documents[0] || null;
-        } catch (error) {
-            console.log("Appwrite service :: getCategory :: error", error);
-            return null;
-        }
     }
 
     async getProfile(userID) {

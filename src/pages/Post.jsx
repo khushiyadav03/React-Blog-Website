@@ -106,7 +106,6 @@ export default function Post() {
                         <Link to={`/authors/${post.userID}`} className="font-semibold text-slate-950 hover:text-emerald-700">
                             {profile?.name || "View author"}
                         </Link>
-                        {post.categoryID && <span className="rounded-full bg-slate-100 px-3 py-1 font-medium">Category enabled</span>}
                         {Array.isArray(post.tags) && post.tags.map((tag) => (
                             <span key={tag} className="rounded-full bg-emerald-50 px-3 py-1 font-medium text-emerald-700">#{tag}</span>
                         ))}

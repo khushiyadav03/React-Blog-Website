@@ -6,7 +6,6 @@ import { useSelector } from 'react-redux';
 
 function Home() {
     const [posts, setPosts] = useState([])
-    const [categories, setCategories] = useState([])
     const [query, setQuery] = useState("")
     const navigate = useNavigate()
     const authStatus = useSelector((state) => state.auth.status)
@@ -15,7 +14,6 @@ function Home() {
         appwriteService.getPublishedPosts().then((posts) => {
             if(posts) setPosts(posts.documents)
         })
-        appwriteService.getCategories().then((response) => setCategories(response?.documents || []))
     }, [])
 
     const submitSearch = (event) => {
@@ -54,7 +52,7 @@ function Home() {
                             <div className="mx-auto mt-10 grid max-w-4xl gap-3 text-left sm:grid-cols-3">
                                 {[
                                     ["Browse", "Read published articles without creating an account."],
-                                    ["Discover", "Use search, categories, and tags to find useful topics."],
+                                    ["Discover", "Use search and tags to find useful topics."],
                                     ["Save later", "Sign in only when you want a personal reading list."],
                                 ].map(([title, copy]) => (
                                     <div key={title} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -95,7 +93,7 @@ function Home() {
                         <div className="grid gap-5 md:grid-cols-3">
                             {[
                                 ["Read freely", "Most content is public, so visitors can browse without friction."],
-                                ["Discover faster", "Search, categories, tags, and author pages make the archive easier to navigate."],
+                                ["Discover faster", "Search, tags, and author pages make the archive easier to navigate."],
                                 ["Join when useful", "Accounts are for saving posts and unlocking the writer dashboard, not for basic reading."],
                             ].map(([title, copy]) => (
                                 <div key={title} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -120,7 +118,7 @@ function Home() {
                             Ideas, tutorials, and dev notes in one clean CMS.
                         </h1>
                         <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
-                            Browse polished articles, discover categories, and sign in to manage your own writing studio.
+                            Browse polished articles, discover useful tags, and sign in to manage your own writing studio.
                         </p>
                     </div>
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -138,7 +136,7 @@ function Home() {
                         <p className="mb-2 text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">Featured posts</p>
                         <h2 className="text-3xl font-black tracking-tight text-slate-950 md:text-5xl">Latest writing</h2>
                     </div>
-                    <p className="max-w-xl text-slate-600">Search, filter, and read published posts from the Appwrite-backed content collection.</p>
+                    <p className="max-w-xl text-slate-600">Search and read published posts from the Appwrite-backed content collection.</p>
                 </div>
                 <form onSubmit={submitSearch} className="mb-8 flex gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
                     <input
@@ -149,15 +147,6 @@ function Home() {
                     />
                     <button className="rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white hover:bg-emerald-700">Search</button>
                 </form>
-                {categories.length > 0 && (
-                    <div className="mb-8 flex flex-wrap gap-2">
-                        {categories.map((category) => (
-                            <Link key={category.$id} to={`/categories/${category.slug}`} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700">
-                                {category.name}
-                            </Link>
-                        ))}
-                    </div>
-                )}
                 <div className='grid gap-6 sm:grid-cols-2 lg:grid-cols-3'>
                     {posts.map((post) => (
                         <div key={post.$id}>
