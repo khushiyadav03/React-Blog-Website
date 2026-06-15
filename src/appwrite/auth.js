@@ -49,6 +49,14 @@ export class AuthService {
     async login({email, password}) {
         if (!this.isConfigured) throw new Error("Appwrite auth is not configured.");
 
+        try {
+            // Delete existing active session on the client/device, if any,
+            // to prevent "Creation of a session is prohibited when a session is active" error.
+            await this.account.deleteSession("current");
+        } catch {
+            // Ignore error if there is no active session.
+        }
+
         // Email/password se Appwrite session create hota hai.
         const session = await this.account.createEmailPasswordSession(email, password);
 
