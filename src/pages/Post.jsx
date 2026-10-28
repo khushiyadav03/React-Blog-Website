@@ -13,6 +13,11 @@ export default function Post() {
     const [liked, setLiked] = useState(false);
     const [likeCount, setLikeCount] = useState(0);
     const [shareStatus, setShareStatus] = useState("");
+    const [likeBusy, setLikeBusy] = useState(false);
+    const [bookmarkBusy, setBookmarkBusy] = useState(false);
+    const [likeStateLoading, setLikeStateLoading] = useState(false);
+    const [bookmarkStateLoading, setBookmarkStateLoading] = useState(false);
+    const [interactionError, setInteractionError] = useState("");
     const viewRequestSlug = useRef(null);
     const { slug } = useParams();
     const navigate = useNavigate();
@@ -52,15 +57,47 @@ export default function Post() {
     }, [post?.userID]);
 
     useEffect(() => {
-        if (!userData?.$id || !post?.$id) return;
+        if (!post?.$id) return;
+        setBookmark(null);
+        if (!userData?.$id) {
+            setBookmarkStateLoading(false);
+            return;
+        }
 
-        blogService.getBookmark(userData.$id, post.$id).then(setBookmark);
+        let active = true;
+        setBookmarkStateLoading(true);
+        blogService.getBookmark(userData.$id, post.$id).then((result) => {
+            if (active) setBookmark(result);
+        }).catch((error) => {
+            console.error("Could not load bookmark state", error);
+        }).finally(() => {
+            if (active) setBookmarkStateLoading(false);
+        });
+        return () => { active = false; };
     }, [userData?.$id, post?.$id]);
 
     useEffect(() => {
         if (!post) return;
         setLikeCount(Number(post.likes) || 0);
-    }, [post]);
+        setLiked(false);
+        if (!userData?.$id || post.status !== "active") {
+            setLikeStateLoading(false);
+            return;
+        }
+
+        let active = true;
+        setLikeStateLoading(true);
+        blogService.getLikeState(post.$id).then((result) => {
+            if (!active) return;
+            setLiked(Boolean(result.liked));
+            setLikeCount(Number(result.like_count) || 0);
+        }).catch((error) => {
+            console.error("Could not load like state", error);
+        }).finally(() => {
+            if (active) setLikeStateLoading(false);
+        });
+        return () => { active = false; };
+    }, [post?.$id, userData?.$id]);
 
     const toggleBookmark = async () => {
         if (!userData?.$id) {
@@ -68,16 +105,44 @@ export default function Post() {
             return;
         }
 
-        const updatedBookmark = await blogService.toggleBookmark(userData.$id, post.$id);
-        setBookmark(updatedBookmark);
+        setBookmarkBusy(true);
+        setInteractionError("");
+        try {
+            const updatedBookmark = await blogService.toggleBookmark(userData.$id, post.$id);
+            setBookmark(updatedBookmark);
+        } catch (error) {
+            console.error("Could not update bookmark", error);
+            setInteractionError(error.message || "Could not update saved state. Please try again.");
+        } finally {
+            setBookmarkBusy(false);
+        }
     };
 
-    const toggleLike = () => {
-        setLiked((current) => {
-            const next = !current;
-            setLikeCount((count) => Math.max(0, count + (next ? 1 : -1)));
-            return next;
-        });
+    const toggleLike = async () => {
+        if (!userData?.$id) {
+            navigate("/login");
+            return;
+        }
+
+        const previousLiked = liked;
+        const previousCount = likeCount;
+        const nextLiked = !previousLiked;
+        setLiked(nextLiked);
+        setLikeCount(Math.max(0, previousCount + (nextLiked ? 1 : -1)));
+        setLikeBusy(true);
+        setInteractionError("");
+        try {
+            const result = nextLiked ? await blogService.likePost(post.$id) : await blogService.unlikePost(post.$id);
+            setLiked(Boolean(result.liked));
+            setLikeCount(Number(result.like_count) || 0);
+        } catch (error) {
+            console.error("Could not update like", error);
+            setLiked(previousLiked);
+            setLikeCount(previousCount);
+            setInteractionError(error.message || "Could not update like. Please try again.");
+        } finally {
+            setLikeBusy(false);
+        }
     };
 
     const sharePost = async () => {
@@ -143,6 +208,7 @@ export default function Post() {
                                 textColor={bookmark ? "text-white" : "text-slate-950"}
                                 className="rounded-full shadow-sm hover:bg-emerald-700 hover:text-white"
                                 onClick={toggleBookmark}
+                                disabled={bookmarkBusy || bookmarkStateLoading}
                             >
                                 <span className="inline-flex items-center gap-2">
                                     {bookmark ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
@@ -155,6 +221,7 @@ export default function Post() {
                                 textColor={liked ? "text-white" : "text-slate-950"}
                                 className="rounded-full shadow-sm hover:bg-rose-600 hover:text-white"
                                 onClick={toggleLike}
+                                disabled={likeBusy || likeStateLoading || post.status !== "active"}
                             >
                                 <span className="inline-flex items-center gap-2">
                                     <Heart size={16} fill={liked ? "currentColor" : "none"} />
@@ -220,6 +287,7 @@ export default function Post() {
                                     </>
                                 )}
                             </div>
+                            {interactionError && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{interactionError}</p>}
                         </div>
                     </div>
 

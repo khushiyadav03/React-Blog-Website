@@ -25,6 +25,9 @@ export class Service {
     async updatePost(slug, data) { return jsonRequest(`/api/blogs/${encodeURIComponent(slug)}`, "PUT", { ...data, tags: Array.isArray(data.tags) ? data.tags : String(data.tags || "").split(",").map((tag) => tag.trim()).filter(Boolean) }); }
     async getPost(slug) { try { return await request(`/api/blogs/${encodeURIComponent(slug)}`); } catch { return false; } }
     recordPostView(slug) { return request(`/api/blogs/${encodeURIComponent(slug)}/view`, { method: "POST" }); }
+    getLikeState(slug) { return request(`/api/blogs/${encodeURIComponent(slug)}/like`); }
+    likePost(slug) { return request(`/api/blogs/${encodeURIComponent(slug)}/like`, { method: "PUT" }); }
+    unlikePost(slug) { return request(`/api/blogs/${encodeURIComponent(slug)}/like`, { method: "DELETE" }); }
     async deletePost(slug) { try { await request(`/api/blogs/${encodeURIComponent(slug)}`, { method: "DELETE" }); return true; } catch { return false; } }
 
     async getPosts(params = {}) {
@@ -41,7 +44,7 @@ export class Service {
 
     getBookmarks() { return request("/api/bookmarks"); }
     getBookmark(_, postID) { return request(`/api/bookmarks/${encodeURIComponent(postID)}`); }
-    toggleBookmark(_, postID) { return request(`/api/bookmarks/${encodeURIComponent(postID)}`, "POST"); }
+    toggleBookmark(_, postID) { return request(`/api/bookmarks/${encodeURIComponent(postID)}`, { method: "POST" }); }
 
     async uploadFile(file) {
         const form = new FormData();

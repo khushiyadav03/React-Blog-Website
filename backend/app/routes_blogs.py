@@ -26,6 +26,7 @@ def serialize(document: dict) -> dict:
         "userID": str(document["user_id"]),
         "excerpt": document.get("excerpt", ""),
         "tags": document.get("tags", []),
+        "likes": document.get("likes", 0),
         "viewCount": document.get("view_count", 0),
         "$createdAt": document["created_at"].isoformat(),
         "$updatedAt": document["updated_at"].isoformat(),
@@ -60,6 +61,59 @@ def get_blog(identifier: str):
     return serialize(post)
 
 
+def _like_response(post: dict, user: dict) -> dict:
+    return {
+        "liked": user["_id"] in post.get("liked_by", []),
+        "like_count": post.get("likes", 0),
+    }
+
+
+@router.get("/{identifier}/like")
+def get_blog_like(identifier: str, user: dict = Depends(current_user)):
+    post = find_post(identifier)
+    if not post or post.get("status") != "active":
+        raise HTTPException(status_code=404, detail="Published post not found")
+    return _like_response(post, user)
+
+
+@router.put("/{identifier}/like")
+def like_blog(identifier: str, user: dict = Depends(current_user)):
+    post = find_post(identifier)
+    if not post or post.get("status") != "active":
+        raise HTTPException(status_code=404, detail="Published post not found")
+    updated = get_database().posts.find_one_and_update(
+        {"_id": post["_id"], "status": "active", "liked_by": {"$ne": user["_id"]}},
+        {"$addToSet": {"liked_by": user["_id"]}, "$inc": {"likes": 1}},
+        return_document=ReturnDocument.AFTER,
+        projection={"likes": 1, "liked_by": 1},
+    )
+    if updated:
+        return _like_response(updated, user)
+    current = get_database().posts.find_one({"_id": post["_id"], "status": "active"}, {"likes": 1, "liked_by": 1})
+    if not current:
+        raise HTTPException(status_code=404, detail="Published post not found")
+    return _like_response(current, user)
+
+
+@router.delete("/{identifier}/like")
+def unlike_blog(identifier: str, user: dict = Depends(current_user)):
+    post = find_post(identifier)
+    if not post or post.get("status") != "active":
+        raise HTTPException(status_code=404, detail="Published post not found")
+    updated = get_database().posts.find_one_and_update(
+        {"_id": post["_id"], "status": "active", "liked_by": user["_id"]},
+        {"$pull": {"liked_by": user["_id"]}, "$inc": {"likes": -1}},
+        return_document=ReturnDocument.AFTER,
+        projection={"likes": 1, "liked_by": 1},
+    )
+    if updated:
+        return _like_response(updated, user)
+    current = get_database().posts.find_one({"_id": post["_id"], "status": "active"}, {"likes": 1, "liked_by": 1})
+    if not current:
+        raise HTTPException(status_code=404, detail="Published post not found")
+    return _like_response(current, user)
+
+
 @router.post("/{identifier}/view")
 def record_blog_view(identifier: str):
     """Count one public read of an active post, using an atomic database increment."""
@@ -86,7 +140,7 @@ def record_blog_view(identifier: str):
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_blog(data: BlogCreate, user: dict = Depends(current_user)):
     now = datetime.now(timezone.utc)
-    document = {**data.model_dump(), "user_id": user["_id"], "created_at": now, "updated_at": now, "view_count": 0}
+    document = {**data.model_dump(), "user_id": user["_id"], "created_at": now, "updated_at": now, "view_count": 0, "likes": 0, "liked_by": []}
     try:
         result = get_database().posts.insert_one(document)
     except DuplicateKeyError as error:

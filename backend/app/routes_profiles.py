@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
+from pymongo.errors import DuplicateKeyError
 
 from app.auth import current_user
 from app.database.mongodb import get_database
@@ -56,5 +57,12 @@ def toggle_bookmark(post_id: str, user: dict = Depends(current_user)):
         database.bookmarks.delete_one({"_id": existing["_id"]})
         return None
     document = {"user_id": user["_id"], "post_id": post_id, "created_at": datetime.now(timezone.utc)}
-    result = database.bookmarks.insert_one(document)
+    try:
+        result = database.bookmarks.insert_one(document)
+    except DuplicateKeyError:
+        # The unique user/post index prevents a concurrent duplicate save.
+        existing = database.bookmarks.find_one({"user_id": user["_id"], "post_id": post_id})
+        if not existing:
+            raise
+        return {"$id": str(existing["_id"]), "userID": str(user["_id"]), "postID": post_id, "created_at": existing["created_at"].isoformat()}
     return {"$id": str(result.inserted_id), "userID": str(user["_id"]), "postID": post_id, "created_at": document["created_at"].isoformat()}
