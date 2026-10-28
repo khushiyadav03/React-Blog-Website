@@ -18,6 +18,7 @@ def serialize(document: dict) -> dict:
         "title": document["title"],
         "content": document["content"],
         "featuredImage": document.get("featuredImage", ""),
+        "featuredImagePublicId": document.get("featuredImagePublicId"),
         "status": document.get("status", "draft"),
         "userID": str(document["user_id"]),
         "excerpt": document.get("excerpt", ""),

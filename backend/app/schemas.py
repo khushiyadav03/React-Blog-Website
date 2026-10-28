@@ -31,6 +31,7 @@ class BlogCreate(BaseModel):
     slug: str = Field(min_length=1, max_length=80, pattern=r"^[a-z0-9-]+$")
     content: str = Field(min_length=1)
     featuredImage: str = ""
+    featuredImagePublicId: str | None = None
     status: str = Field(default="active", pattern=r"^(active|draft)$")
     excerpt: str = Field(default="", max_length=500)
     tags: list[str] = Field(default_factory=list)
@@ -40,6 +41,7 @@ class BlogUpdate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     content: str = Field(min_length=1)
     featuredImage: str | None = None
+    featuredImagePublicId: str | None = None
     status: str = Field(pattern=r"^(active|draft)$")
     excerpt: str = Field(default="", max_length=500)
     tags: list[str] = Field(default_factory=list)

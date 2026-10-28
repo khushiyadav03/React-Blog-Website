@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 1440
     cors_origins: str = "http://localhost:5173"
     upload_dir: str = "uploads"
+    cloudinary_cloud_name: str = ""
+    cloudinary_api_key: str = ""
+    cloudinary_api_secret: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

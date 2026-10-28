@@ -7,4 +7,5 @@ PyJWT>=2.10,<3
 bcrypt>=4.2,<5
 python-multipart>=0.0.20,<1
 email-validator>=2.2,<3
+cloudinary>=1.44,<2
 scikit-learn>=1.5,<2

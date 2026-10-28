@@ -28,7 +28,9 @@ def prediction(data: PredictionRequest):
         result = predict([getattr(data, feature) for feature in FEATURES])
     except RuntimeError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
-    return {"success": True, "prediction": round(result, 2), "unit": "expected post views"}
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return {"success": True, "estimated_views": result, "prediction": result, "unit": "expected post views"}
 
 
 @router.get("/model-info")
