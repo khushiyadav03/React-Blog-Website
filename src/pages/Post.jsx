@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Heart, Share2, Bookmark, BookmarkCheck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Heart, Share2, Bookmark, BookmarkCheck, Eye } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import blogService from "../services/config";
 import { Button, Container } from "../components";
@@ -13,6 +13,7 @@ export default function Post() {
     const [liked, setLiked] = useState(false);
     const [likeCount, setLikeCount] = useState(0);
     const [shareStatus, setShareStatus] = useState("");
+    const viewRequestSlug = useRef(null);
     const { slug } = useParams();
     const navigate = useNavigate();
 
@@ -23,6 +24,7 @@ export default function Post() {
     const imageUrl = blogService.getFileView(imageId);
 
     useEffect(() => {
+        if (viewRequestSlug.current !== slug) viewRequestSlug.current = null;
         if (slug) {
             blogService.getPost(slug).then((post) => {
                 if (post) setPost(post);
@@ -30,6 +32,18 @@ export default function Post() {
             });
         } else navigate("/");
     }, [slug, navigate]);
+
+    useEffect(() => {
+        if (!post || post.$id !== slug || post.status !== "active" || viewRequestSlug.current === slug) return;
+
+        // Remember the slug before requesting so React Strict Mode's repeated effect setup cannot double-count it.
+        viewRequestSlug.current = slug;
+        blogService.recordPostView(post.$id).then(({ view_count: viewCount }) => {
+            setPost((current) => current?.$id === post.$id ? { ...current, viewCount } : current);
+        }).catch((error) => {
+            console.error("Could not record post view", error);
+        });
+    }, [post, slug]);
 
     useEffect(() => {
         if (!post?.userID) return;
@@ -189,6 +203,10 @@ export default function Post() {
                                 </Link>
                                 <span className="h-1 w-1 rounded-full bg-slate-300" />
                                 <span>Reader feature</span>
+                                <span className="inline-flex items-center gap-1.5" title="Post views">
+                                    <Eye size={16} aria-hidden="true" />
+                                    <span>{post.viewCount ?? 0} views</span>
+                                </span>
                                 {Array.isArray(post.tags) && post.tags.length > 0 && (
                                     <>
                                         <span className="h-1 w-1 rounded-full bg-slate-300" />

@@ -1,15 +1,18 @@
 from datetime import datetime, timezone
+import logging
 from typing import Any
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pymongo.errors import DuplicateKeyError
+from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from app.auth import current_user
 from app.database.mongodb import get_database
 from app.schemas import BlogCreate, BlogUpdate
 
 router = APIRouter(prefix="/api/blogs", tags=["Blogs"])
+logger = logging.getLogger(__name__)
 
 
 def serialize(document: dict) -> dict:
@@ -54,10 +57,30 @@ def get_blog(identifier: str):
     post = find_post(identifier)
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
-    if post.get("status") == "active":
-        get_database().posts.update_one({"_id": post["_id"]}, {"$inc": {"view_count": 1}})
-        post["view_count"] = post.get("view_count", 0) + 1
     return serialize(post)
+
+
+@router.post("/{identifier}/view")
+def record_blog_view(identifier: str):
+    """Count one public read of an active post, using an atomic database increment."""
+    try:
+        post = find_post(identifier)
+        if not post or post.get("status") != "active":
+            raise HTTPException(status_code=404, detail="Published post not found")
+        updated = get_database().posts.find_one_and_update(
+            {"_id": post["_id"], "status": "active"},
+            {"$inc": {"view_count": 1}},
+            return_document=ReturnDocument.AFTER,
+            projection={"view_count": 1},
+        )
+        if not updated:
+            raise HTTPException(status_code=404, detail="Published post not found")
+        return {"view_count": updated.get("view_count", 0)}
+    except HTTPException:
+        raise
+    except PyMongoError as error:
+        logger.exception("Could not record view for post %s", identifier)
+        raise HTTPException(status_code=500, detail="Could not record post view") from error
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
