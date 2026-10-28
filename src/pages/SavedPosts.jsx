@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import appwriteService from "../appwrite/config";
+import blogService from "../services/config";
 import { Container, PostCard } from "../components";
 
 function SavedPosts() {
@@ -10,9 +10,9 @@ function SavedPosts() {
     useEffect(() => {
         if (!userData?.$id) return;
 
-        appwriteService.getBookmarks(userData.$id).then(async (response) => {
+        blogService.getBookmarks(userData.$id).then(async (response) => {
             const savedPosts = await Promise.all(
-                (response?.documents || []).map((bookmark) => appwriteService.getPost(bookmark.postID))
+                (response?.documents || []).map((bookmark) => blogService.getPost(bookmark.postID))
             );
 
             setPosts(savedPosts.filter(Boolean));

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { Button, Input, RTE, Select } from "..";
-import appwriteService from "../../appwrite/config";
+import blogService from "../../services/config";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 
@@ -28,7 +28,7 @@ export default function PostForm({ post }) {
     const [imageSize, setImageSize] = useState(null);
     const [cropSelection, setCropSelection] = useState({ x: 10, y: 10, width: 80 });
     const currentImageId = post?.featuredImage || post?.featuredimage || post?.image;
-    const currentImageUrl = appwriteService.getFileView(currentImageId);
+    const currentImageUrl = blogService.getFileView(currentImageId);
     const titleValue = useWatch({ control, name: "title" });
     const selectedImage = useWatch({ control, name: "image" });
     const imageInput = register("image", {
@@ -144,7 +144,7 @@ export default function PostForm({ post }) {
             if (post) {
                 // Edit mode: agar new image select ki hai to pehle upload karte hain.
                 const preparedImage = normalizedData.image?.[0] ? await resizeFeaturedImage(normalizedData.image[0]) : null;
-                const file = preparedImage ? await appwriteService.uploadFile(preparedImage) : null;
+                const file = preparedImage ? await blogService.uploadFile(preparedImage) : null;
 
                 if (preparedImage && !file) {
                     setFormError("Image upload failed. Please try again with a smaller image.");
@@ -153,11 +153,11 @@ export default function PostForm({ post }) {
 
                 if (file) {
                     // New image upload ho gayi to old featured image delete kar dete hain.
-                    appwriteService.deleteFile(post.featuredImage);
+                    blogService.deleteFile(post.featuredImage);
                 }
 
                 // Post update karte hain; image change nahi hui to featuredImage undefined rahega.
-                const dbPost = await appwriteService.updatePost(post.$id, {
+                const dbPost = await blogService.updatePost(post.$id, {
                     ...normalizedData,
                     tags: normalizedData.tags ? normalizedData.tags.split(",").map((tag) => tag.trim()).filter(Boolean) : [],
                     featuredImage: file ? file.$id : undefined,
@@ -169,11 +169,12 @@ export default function PostForm({ post }) {
                     return;
                 }
 
-                setFormError("Post could not be saved. Please check your Appwrite permissions and try again.");
+                setFormError("Post could not be saved. Please check your permissions and try again.");
+                    setFormError("Post could not be saved. Please check your permissions and try again.");
             } else {
                 // Add mode: new post create karne se pehle image upload karna zaroori hai.
                 const preparedImage = await resizeFeaturedImage(normalizedData.image?.[0]);
-                const file = preparedImage ? await appwriteService.uploadFile(preparedImage) : null;
+                const file = preparedImage ? await blogService.uploadFile(preparedImage) : null;
 
                 if (!file) {
                     setFormError("Image upload failed. Please choose a featured image and try again.");
@@ -183,7 +184,7 @@ export default function PostForm({ post }) {
                 normalizedData.featuredImage = file.$id;
 
                 // Current logged-in user ki ID ke saath post create hota hai.
-                const dbPost = await appwriteService.createPost({
+                const dbPost = await blogService.createPost({
                     ...normalizedData,
                     tags: normalizedData.tags ? normalizedData.tags.split(",").map((tag) => tag.trim()).filter(Boolean) : [],
                     userID: userData.$id,
@@ -194,7 +195,8 @@ export default function PostForm({ post }) {
                     return;
                 }
 
-                setFormError("Post could not be published. Please check your Appwrite permissions and try again.");
+                setFormError("Post could not be published. Please check your permissions and try again.");
+                    setFormError("Post could not be published. Please check your permissions and try again.");
             }
         } catch {
             setFormError("Something went wrong while publishing. Please try again.");
@@ -391,7 +393,8 @@ export default function PostForm({ post }) {
                 />
                 <Input
                     label="Tags"
-                    placeholder="react, appwrite, cms"
+                    placeholder="react, cms, publishing"
+                        placeholder="react, cms, publishing"
                     className="mb-4"
                     {...register("tags")}
                 />

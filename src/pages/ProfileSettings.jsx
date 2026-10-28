@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
-import appwriteService from "../appwrite/config";
+import blogService from "../services/config";
 import { Button, Container, Input } from "../components";
 
 function ProfileSettings() {
@@ -19,7 +19,7 @@ function ProfileSettings() {
     useEffect(() => {
         if (!userData?.$id) return;
 
-        appwriteService.getProfile(userData.$id).then((profileData) => {
+        blogService.getProfile(userData.$id).then((profileData) => {
             setProfile(profileData);
             setForm({
                 name: profileData?.name || userData.name || "",
@@ -42,7 +42,7 @@ function ProfileSettings() {
         event.preventDefault();
         setMessage("");
 
-        const saved = await appwriteService.upsertProfile({
+        const saved = await blogService.upsertProfile({
             ...form,
             userID: userData.$id,
             avatar: profile?.avatar,

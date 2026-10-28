@@ -23,6 +23,8 @@ import ProfileSettings from './pages/ProfileSettings.jsx'
 import AccountSettings from './pages/AccountSettings.jsx'
 import Search from './pages/Search.jsx'
 import AuthorProfile from './pages/AuthorProfile.jsx'
+import Engagement from './pages/Engagement.jsx'
+import LegacyEditRedirect from './components/LegacyEditRedirect.jsx'
 
 const router = createBrowserRouter([
   {
@@ -82,6 +84,14 @@ const router = createBrowserRouter([
             ),
         },
         {
+            path: "/dashboard/engagement",
+            element: (
+                <AuthLayout authentication>
+                    <Engagement />
+                </AuthLayout>
+            ),
+        },
+        {
             path: "/dashboard/posts/new",
             element: (
                 <AuthLayout authentication>
@@ -127,7 +137,7 @@ const router = createBrowserRouter([
         },
         {
             path: "/edit-post/:slug",
-            element: <Navigate to="/dashboard/posts/:slug/edit" replace />,
+            element: <LegacyEditRedirect />,
         },
         {
             path: "/post/:slug",

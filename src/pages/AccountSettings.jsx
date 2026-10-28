@@ -28,7 +28,7 @@ function AccountSettings() {
                         </div>
                     </dl>
                     <p className="mt-6 rounded-2xl bg-stone-50 px-4 py-3 text-sm text-slate-600">
-                        Password and email changes can be added with Appwrite Account APIs as a focused phase after the CMS flow is complete.
+                            Password and email changes can be added through the account API in a future update.
                     </p>
                 </div>
             </Container>

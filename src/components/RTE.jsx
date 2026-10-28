@@ -1,6 +1,6 @@
 import {Editor } from '@tinymce/tinymce-react';
 import {Controller } from 'react-hook-form';
-import appwriteService from '../appwrite/config';
+import blogService from '../services/config';
 
 
 export default function RTE({name, control, label, defaultValue =""}) {
@@ -29,14 +29,14 @@ export default function RTE({name, control, label, defaultValue =""}) {
                     type: blob.type,
                 });
 
-                const uploadedFile = await appwriteService.uploadFile(file);
+                const uploadedFile = await blogService.uploadFile(file);
 
                 if (!uploadedFile) {
                     throw new Error("Image upload failed");
                 }
 
                 progress(100);
-                return appwriteService.getFileView(uploadedFile.$id);
+                return blogService.getFileView(uploadedFile.$id);
             },
             image_title: true,
             image_advtab: true,
