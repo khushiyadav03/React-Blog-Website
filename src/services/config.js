@@ -46,10 +46,14 @@ export class Service {
         const form = new FormData();
         form.append("file", file);
         const result = await request("/api/uploads", { method: "POST", body: form });
-        return { $id: result.$id, url: result.url };
+        return { $id: result.$id, public_id: result.public_id, url: result.url };
     }
     async deleteFile(fileID) { try { await request(`/api/uploads/${encodeURIComponent(fileID)}`, { method: "DELETE" }); return true; } catch { return false; } }
-    getFileView(fileID) { return fileID ? `${conf.apiBaseUrl}/uploads/${encodeURIComponent(fileID)}` : ""; }
+    getFileView(fileID) {
+        if (!fileID) return "";
+        if (/^https?:\/\//i.test(fileID)) return fileID;
+        return `${conf.apiBaseUrl}/uploads/${encodeURIComponent(fileID)}`;
+    }
     getFilePreview(fileID) { return this.getFileView(fileID); }
 
     getModelInfo() { return request("/api/ml/model-info"); }

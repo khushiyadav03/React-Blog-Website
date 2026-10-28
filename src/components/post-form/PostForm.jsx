@@ -134,6 +134,7 @@ export default function PostForm({ post }) {
 
     const submit = async (data) => {
         setFormError("");
+        let uploadedAsset = null;
 
         const normalizedData = {
             ...data,
@@ -145,25 +146,24 @@ export default function PostForm({ post }) {
                 // Edit mode: agar new image select ki hai to pehle upload karte hain.
                 const preparedImage = normalizedData.image?.[0] ? await resizeFeaturedImage(normalizedData.image[0]) : null;
                 const file = preparedImage ? await blogService.uploadFile(preparedImage) : null;
+                uploadedAsset = file;
 
                 if (preparedImage && !file) {
                     setFormError("Image upload failed. Please try again with a smaller image.");
                     return;
                 }
 
-                if (file) {
-                    // New image upload ho gayi to old featured image delete kar dete hain.
-                    blogService.deleteFile(post.featuredImage);
-                }
-
                 // Post update karte hain; image change nahi hui to featuredImage undefined rahega.
                 const dbPost = await blogService.updatePost(post.$id, {
                     ...normalizedData,
                     tags: normalizedData.tags ? normalizedData.tags.split(",").map((tag) => tag.trim()).filter(Boolean) : [],
-                    featuredImage: file ? file.$id : undefined,
+                    featuredImage: file ? file.url : undefined,
+                    featuredImagePublicId: file ? file.public_id : undefined,
                 });
 
                 if (dbPost) {
+                    if (file && post.featuredImagePublicId) await blogService.deleteFile(post.featuredImagePublicId);
+                    else if (file && post.featuredImage && !/^https?:\/\//i.test(post.featuredImage)) await blogService.deleteFile(post.featuredImage);
                     // Update ke baad post detail page par redirect karte hain.
                     navigate(`/post/${dbPost.$id}`);
                     return;
@@ -175,13 +175,15 @@ export default function PostForm({ post }) {
                 // Add mode: new post create karne se pehle image upload karna zaroori hai.
                 const preparedImage = await resizeFeaturedImage(normalizedData.image?.[0]);
                 const file = preparedImage ? await blogService.uploadFile(preparedImage) : null;
+                uploadedAsset = file;
 
                 if (!file) {
                     setFormError("Image upload failed. Please choose a featured image and try again.");
                     return;
                 }
 
-                normalizedData.featuredImage = file.$id;
+                normalizedData.featuredImage = file.url;
+                normalizedData.featuredImagePublicId = file.public_id;
 
                 // Current logged-in user ki ID ke saath post create hota hai.
                 const dbPost = await blogService.createPost({
@@ -199,6 +201,7 @@ export default function PostForm({ post }) {
                     setFormError("Post could not be published. Please check your permissions and try again.");
             }
         } catch {
+            if (uploadedAsset?.public_id) await blogService.deleteFile(uploadedAsset.public_id);
             setFormError("Something went wrong while publishing. Please try again.");
         }
     };

@@ -36,7 +36,7 @@ export default function RTE({name, control, label, defaultValue =""}) {
                 }
 
                 progress(100);
-                return blogService.getFileView(uploadedFile.$id);
+                return uploadedFile.url;
             },
             image_title: true,
             image_advtab: true,
